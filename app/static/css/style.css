@@ -1,0 +1,62 @@
+/* Custom styles */
+.transition-all {
+    transition: all 0.3s ease;
+}
+
+/* Loading animation */
+@keyframes pulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.5; }
+    100% { opacity: 1; }
+}
+
+.loading {
+    animation: pulse 1.5s infinite;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+    width: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}
+
+/* Image preview transition */
+#imagePreview {
+    transition: opacity 0.3s ease;
+}
+
+#imagePreview.hidden {
+    opacity: 0;
+}
+
+/* Search button transition */
+#searchButton {
+    transition: all 0.2s ease;
+}
+
+#searchButton:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+}
+
+/* Result card hover effect */
+#results > div {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+#results > div:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+} 

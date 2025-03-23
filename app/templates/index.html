@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Semantic Product Search</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .hidden {
+            display: none;
+        }
+        .dragover {
+            border-color: #4299e1;
+            background-color: #ebf8ff;
+        }
+        #results-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 1.5rem;
+            padding: 1.5rem;
+        }
+        .aspect-w-1 {
+            position: relative;
+            padding-bottom: 100%;
+        }
+        .aspect-w-1 img {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        #imagePreview {
+            max-width: 300px;
+            margin: 1rem auto;
+        }
+        #imagePreview img {
+            width: 100%;
+            height: auto;
+            border-radius: 0.5rem;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <div class="container mx-auto px-4 py-8">
+        <h1 class="text-4xl font-bold text-center mb-8">Semantic Product Search</h1>
+
+        <!-- Search Section -->
+        <div class="max-w-3xl mx-auto mb-8">
+            <!-- Text Search -->
+            <div class="flex gap-2 mb-6">
+                <input type="text" id="textQuery" 
+                       class="flex-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
+                       placeholder="Search by text (e.g., 'blue t-shirt')">
+                <button id="searchBtn" 
+                        class="px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 focus:outline-none">
+                    Search
+                </button>
+            </div>
+
+            <!-- Image Upload -->
+            <div id="dropZone" 
+                 class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center cursor-pointer hover:border-blue-500 transition-colors">
+                <input type="file" id="fileInput" class="hidden" accept="image/*">
+                <div id="imagePreview" class="hidden">
+                    <img src="" alt="Preview" class="shadow">
+                </div>
+                <p class="text-gray-600">Drop an image here or click to upload</p>
+            </div>
+        </div>
+
+        <!-- Loading Spinner -->
+        <div id="loadingSpinner" class="hidden flex justify-center items-center mb-4">
+            <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+        </div>
+
+        <!-- Error Message -->
+        <div id="errorMessage" class="hidden max-w-3xl mx-auto mb-4 p-4 bg-red-100 text-red-700 rounded-lg"></div>
+
+        <!-- Results Section -->
+        <div id="results" class="max-w-7xl mx-auto">
+            <div id="results-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"></div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html> 

@@ -1,0 +1,12 @@
+flask==3.0.2
+flask-cors==4.0.0
+python-dotenv==1.0.1
+google-cloud-bigquery==3.17.2
+google-cloud-aiplatform==1.42.1
+google-generativeai==0.3.2
+Pillow==10.2.0
+requests==2.31.0
+vertexai==0.0.1
+gunicorn==21.2.0
+protobuf==4.25.1
+numpy==1.24.3
