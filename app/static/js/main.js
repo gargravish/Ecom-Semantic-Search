@@ -6,6 +6,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const imagePreview = document.getElementById('imagePreview');
     const dropZone = document.getElementById('dropZone');
     const results = document.getElementById('results');
+    const clearImageBtn = document.getElementById('clearImageBtn');
 
     // Modal elements
     const modal = document.getElementById('productModal');
@@ -335,5 +336,28 @@ document.addEventListener('DOMContentLoaded', () => {
             showError('Error reading the image file');
         };
         reader.readAsDataURL(file);
+    }
+
+    // Clear image functionality
+    if (clearImageBtn) {
+        clearImageBtn.addEventListener('click', () => {
+            // Clear the image preview
+            const img = imagePreview.querySelector('img');
+            if (img) {
+                img.src = '';
+            }
+            imagePreview.classList.add('hidden');
+            
+            // Reset the file input
+            if (fileInput) {
+                fileInput.value = '';
+            }
+            
+            // Clear any existing results
+            const resultsGrid = document.getElementById('results-grid');
+            if (resultsGrid) {
+                resultsGrid.innerHTML = '';
+            }
+        });
     }
 }); 
