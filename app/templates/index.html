@@ -72,6 +72,30 @@
                 </div>
                 <p class="text-gray-600">Drop an image here or click to upload</p>
             </div>
+
+            <!-- Webcam Section -->
+            <div class="mt-6">
+                <div class="flex justify-center gap-4 mb-4">
+                    <button id="startWebcamBtn" 
+                            class="px-6 py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 focus:outline-none">
+                        Start Webcam
+                    </button>
+                    <button id="stopWebcamBtn" 
+                            class="px-6 py-3 bg-red-500 text-white rounded-lg hover:bg-red-600 focus:outline-none hidden">
+                        Stop Webcam
+                    </button>
+                    <button id="captureBtn" 
+                            class="px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 focus:outline-none hidden">
+                        Capture & Search
+                    </button>
+                </div>
+                <div id="webcamContainer" class="hidden">
+                    <video id="webcamVideo" 
+                           class="w-full max-w-md mx-auto rounded-lg shadow-lg"
+                           autoplay playsinline></video>
+                    <canvas id="webcamCanvas" class="hidden"></canvas>
+                </div>
+            </div>
         </div>
 
         <!-- Loading Spinner -->

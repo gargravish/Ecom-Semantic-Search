@@ -190,7 +190,7 @@ def analyze_image():
             print(f"Failed to initialize Gemini service: {str(e)}")
             return jsonify({
                 'error': 'Service configuration error',
-                'details': 'Failed to initialize image analysis service'
+                'details': str(e)
             }), 500
         
         print("Calling Gemini service analyze_image...")

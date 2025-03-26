@@ -27,6 +27,11 @@ def create_app():
         BIGQUERY_DATASET=os.getenv('BIGQUERY_DATASET', 'raves_us'),
         GEMINI_API_KEY=os.getenv('GEMINI_API_KEY')
     )
+
+    # Validate required configuration
+    if not app.config.get('GEMINI_API_KEY'):
+        app.logger.error('GEMINI_API_KEY not found in environment variables')
+        raise ValueError('GEMINI_API_KEY is required. Please set it in your .env file.')
     
     # Register blueprints
     from .api.routes import bp as api_bp

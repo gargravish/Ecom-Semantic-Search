@@ -7,147 +7,192 @@ import json
 
 class GeminiService:
     def __init__(self, api_key):
-        if not api_key:
-            raise ValueError("Gemini API key is required")
-        print(f"Initializing Gemini service with API key: {'*' * len(api_key)}")
+        self.api_key = api_key
         genai.configure(api_key=api_key)
-        try:
-            self.model = genai.GenerativeModel('gemini-pro-vision')
-        except Exception as e:
-            raise ValueError(f"Failed to initialize Gemini model: {str(e)}")
-        self.approved_apparels = [
-            't-shirt', 'tshirt', 't shirt', 'shirt', 'shoes', 'shorts', 'jeans',
-            'sweatshirt', 'hoodie', 'sweater', 'jacket', 'pullover'
-        ]
-        self.gender_options = ['boy', 'girl', 'man', 'woman']
+        # Use Gemini-2.0-Flash
+        self.model = genai.GenerativeModel('gemini-2.0-flash')
+        self.approved_apparels = ['t-shirt', 'shirt', 'sweatshirt', 'hoodie', 'sweater', 'jacket', 'shoes', 'shorts', 'jeans']
 
     def analyze_image(self, image_data):
         try:
-            print("Starting image analysis...")
+            print("Starting image analysis with Gemini-2.0-Flash...")
             
             # Validate image data
             if not image_data:
                 raise ValueError("Image data is empty")
             
-            print("Decoding base64 image...")
+            print("Processing image data...")
+            # Remove data URL prefix if present
+            if ',' in image_data:
+                image_data = image_data.split(',')[1]
+            
+            image_bytes = base64.b64decode(image_data)
+            
+            # Process image with PIL
             try:
-                # Remove data URL prefix if present
-                if ',' in image_data:
-                    image_data = image_data.split(',')[1]
-                image_bytes = base64.b64decode(image_data)
-            except Exception as e:
-                print(f"Base64 decoding error: {str(e)}")
-                raise ValueError(f"Invalid base64 image data: {str(e)}")
-
-            print("Opening image with PIL...")
-            try:
-                image = Image.open(io.BytesIO(image_bytes))
-                print(f"Image opened successfully. Size: {image.size}, Mode: {image.mode}")
-                
+                pil_image = Image.open(io.BytesIO(image_bytes))
                 # Convert RGBA to RGB if needed
-                if image.mode == 'RGBA':
-                    image = image.convert('RGB')
-                    print("Converted image from RGBA to RGB")
+                if pil_image.mode == 'RGBA':
+                    pil_image = pil_image.convert('RGB')
                 
-                # Ensure reasonable image size
+                # Resize if too large
                 max_size = 1024
-                if max(image.size) > max_size:
-                    ratio = max_size / max(image.size)
-                    new_size = tuple(int(dim * ratio) for dim in image.size)
-                    image = image.resize(new_size, Image.Resampling.LANCZOS)
-                    print(f"Resized image to {new_size}")
-                
+                if max(pil_image.size) > max_size:
+                    ratio = max_size / max(pil_image.size)
+                    new_size = tuple(int(dim * ratio) for dim in pil_image.size)
+                    pil_image = pil_image.resize(new_size, Image.Resampling.LANCZOS)
             except Exception as e:
-                print(f"PIL image error: {str(e)}")
+                print(f"PIL processing error: {str(e)}")
                 raise ValueError(f"Failed to process image: {str(e)}")
-
-            print("Preparing Gemini prompt...")
+            
+            # Convert PIL image back to bytes for Gemini
+            buffered = io.BytesIO()
+            pil_image.save(buffered, format="JPEG")
+            image_bytes = buffered.getvalue()
+            
+            # Prepare the prompt for Gemini
             prompt = """
-            You are a fashion apparel analyzer. Look at this image carefully and identify:
-            1. The main apparel item visible (focus on: t-shirt, shirt, sweatshirt, hoodie, sweater, jacket, shoes, shorts, or jeans)
-            2. The primary color of the apparel
-            3. The likely target gender category (boy, girl, man, woman)
-            4. Your confidence in the gender prediction (high/medium/low)
-
-            Important: The image shows a person wearing clothing. Focus on identifying the main visible garment.
-            Be specific about the type of top - distinguish between t-shirts, shirts, sweatshirts, hoodies, and sweaters.
-
-            Respond ONLY with a JSON object in this exact format:
+            Look at this image carefully and analyze the clothing in detail:
+            1. What is the main type of clothing shown? (e.g., t-shirt, shirt, sweatshirt, hoodie, sweater, jacket, shoes, shorts, jeans)
+            2. What is the primary color of the clothing?
+            3. Is the clothing for a man, woman, boy, or girl?
+            4. Describe any patterns or designs (e.g., striped, checkered, floral, graphic)
+            5. Note any distinctive features (e.g., collar type, sleeve length, buttons, zippers)
+            6. Identify any visible logos or brands if present
+            
+            IMPORTANT: For any field where the information is not visible, not applicable, or unknown, simply leave it as an empty string ("") rather than writing phrases like "none", "none visible", "unknown", or "not applicable".
+            
+            Respond ONLY with a JSON object in this format:
             {
-                "apparel_type": "string (one of: t-shirt, shirt, sweatshirt, hoodie, sweater, jacket, shoes, shorts, jeans)",
-                "color": "string (primary color)",
-                "gender": "string (one of: boy, girl, man, woman)",
-                "gender_confidence": "string (high/medium/low)"
+                "apparel_type": "type of clothing",
+                "color": "primary color",
+                "gender": "man/woman/boy/girl",
+                "gender_confidence": "high/medium/low",
+                "pattern": "description of any pattern or empty string if none/unknown",
+                "features": "notable features like collar type, sleeve length, etc. or empty string if none/unknown",
+                "brand": "visible brand or logo or empty string if none/unknown"
             }
             """
-
+            
             print("Calling Gemini API...")
             try:
-                response = self.model.generate_content([prompt, image])
-                print(f"Raw Gemini response: {response.text}")
-                
-                if not response.text:
-                    raise ValueError("Empty response from Gemini API")
-                    
+                response = self.model.generate_content(
+                    contents=[
+                        {
+                            "parts": [
+                                {"text": prompt},
+                                {"inline_data": {"mime_type": "image/jpeg", "data": base64.b64encode(image_bytes).decode('utf-8')}}
+                            ]
+                        }
+                    ],
+                    generation_config={
+                        "temperature": 0.2,  # Lower temperature for more consistent results
+                        "top_p": 0.95,
+                        "top_k": 40
+                    },
+                    safety_settings=[
+                        {
+                            "category": "HARM_CATEGORY_HARASSMENT",
+                            "threshold": "BLOCK_MEDIUM_AND_ABOVE"
+                        },
+                        {
+                            "category": "HARM_CATEGORY_HATE_SPEECH",
+                            "threshold": "BLOCK_MEDIUM_AND_ABOVE"
+                        },
+                        {
+                            "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+                            "threshold": "BLOCK_MEDIUM_AND_ABOVE"
+                        },
+                        {
+                            "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
+                            "threshold": "BLOCK_MEDIUM_AND_ABOVE"
+                        }
+                    ]
+                )
+                print(f"Received response from Gemini: {response.text}")
             except Exception as e:
-                print(f"Gemini API error: {str(e)}")
-                raise ValueError(f"Gemini API error: {str(e)}")
+                print(f"Gemini API call failed: {str(e)}")
+                raise ValueError(f"Gemini API call failed: {str(e)}")
             
-            # Extract the JSON from the response
-            response_text = response.text
-            print(f"Processing response text: {response_text}")
+            # Process the response
+            response_text = response.text.strip()
+            print(f"Raw response text: {response_text}")
             
-            # Remove any markdown formatting if present
+            # Extract JSON from the response
+            json_match = None
+            
+            # Try different patterns to extract JSON
             if '```json' in response_text:
-                response_text = response_text.split('```json')[1].split('```')[0]
+                json_match = response_text.split('```json')[1].split('```')[0].strip()
             elif '```' in response_text:
-                response_text = response_text.split('```')[1].split('```')[0]
+                json_match = response_text.split('```')[1].split('```')[0].strip()
+            elif '{' in response_text and '}' in response_text:
+                # Try to extract just the JSON object
+                start = response_text.find('{')
+                end = response_text.rfind('}') + 1
+                json_match = response_text[start:end].strip()
             
-            # Clean the response text
-            response_text = response_text.strip()
-            if not response_text:
-                raise ValueError("Empty response text after cleaning")
+            if not json_match:
+                print("Failed to extract JSON from response")
+                json_match = response_text  # Try with the whole text as fallback
             
-            # Parse the JSON response
             try:
-                result = json.loads(response_text)
+                result = json.loads(json_match)
                 print(f"Parsed result: {result}")
+                
+                # Normalize apparel type
+                if 'apparel_type' in result:
+                    result['apparel_type'] = result['apparel_type'].lower().strip()
+                else:
+                    result['apparel_type'] = 'unknown'
+                    
+                # Normalize gender
+                if 'gender' in result:
+                    result['gender'] = result['gender'].lower().strip()
+                else:
+                    result['gender'] = 'unknown'
+                    
+                # Normalize color
+                if 'color' in result:
+                    result['color'] = result['color'].lower().strip()
+                else:
+                    result['color'] = 'unknown'
+                
+                # Normalize pattern
+                if 'pattern' in result:
+                    result['pattern'] = result['pattern'].lower().strip()
+                    if result['pattern'] in ['none', 'solid', 'n/a', 'none visible', 'not visible', 'not applicable']:
+                        result['pattern'] = ''
+                else:
+                    result['pattern'] = ''
+                
+                # Normalize features
+                if 'features' in result:
+                    result['features'] = result['features'].lower().strip()
+                    if result['features'] in ['none', 'n/a', 'none visible', 'not visible', 'not applicable']:
+                        result['features'] = ''
+                else:
+                    result['features'] = ''
+                
+                # Normalize brand
+                if 'brand' in result:
+                    result['brand'] = result['brand'].lower().strip()
+                    if result['brand'] in ['none', 'not visible', 'n/a', 'none visible', 'unknown', 'not applicable']:
+                        result['brand'] = ''
+                else:
+                    result['brand'] = ''
+                
+                return result
+                
             except json.JSONDecodeError as e:
-                print(f"JSON parsing error: {str(e)}")
-                print(f"Failed to parse text: {response_text}")
+                print(f"JSON parsing error: {str(e)}, text: {json_match}")
                 raise ValueError(f"Invalid JSON response from Gemini: {str(e)}")
             
-            # Validate required fields
-            required_fields = ['apparel_type', 'color', 'gender', 'gender_confidence']
-            missing_fields = [field for field in required_fields if field not in result]
-            if missing_fields:
-                raise ValueError(f"Missing required fields in response: {missing_fields}")
-            
-            # Normalize apparel type
-            apparel_type = result['apparel_type'].lower().strip()
-            result['apparel_type'] = apparel_type
-            print(f"Normalized apparel type: {apparel_type}")
-
-            # Validate apparel type
-            result['is_valid_apparel'] = any(
-                apparel in result['apparel_type'].lower()
-                for apparel in self.approved_apparels
-            )
-            print(f"Is valid apparel: {result['is_valid_apparel']}")
-
-            # Normalize common variations
-            if any(term in apparel_type for term in ['sweatshirt', 'hoodie', 'sweater', 'pullover']):
-                result['apparel_type'] = 'sweatshirt'
-                result['is_valid_apparel'] = True
-
-            return result
-
         except Exception as e:
             print(f"Error in analyze_image: {str(e)}")
             import traceback
             print(f"Traceback: {traceback.format_exc()}")
             return {
                 'error': 'Failed to analyze image',
-                'is_valid_apparel': False,
                 'details': str(e)
             } 

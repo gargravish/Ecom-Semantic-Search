@@ -20,6 +20,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const loadingSpinner = document.getElementById('loadingSpinner');
     const errorMessage = document.getElementById('errorMessage');
 
+    // Webcam elements
+    const startWebcamBtn = document.getElementById('startWebcamBtn');
+    const stopWebcamBtn = document.getElementById('stopWebcamBtn');
+    const captureBtn = document.getElementById('captureBtn');
+    const webcamContainer = document.getElementById('webcamContainer');
+    const webcamVideo = document.getElementById('webcamVideo');
+    const webcamCanvas = document.getElementById('webcamCanvas');
+    let webcamStream = null;
+
     // Event Listeners
     if (searchBtn && textQuery) {
         searchBtn.addEventListener('click', () => {
@@ -69,6 +78,161 @@ document.addEventListener('DOMContentLoaded', () => {
             const file = e.dataTransfer.files[0];
             if (file && file.type.startsWith('image/')) {
                 handleImageFile(file);
+            }
+        });
+    }
+
+    // Webcam event listeners
+    if (startWebcamBtn) {
+        startWebcamBtn.addEventListener('click', async () => {
+            try {
+                webcamStream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { facingMode: 'environment' } 
+                });
+                webcamVideo.srcObject = webcamStream;
+                webcamContainer.classList.remove('hidden');
+                startWebcamBtn.classList.add('hidden');
+                stopWebcamBtn.classList.remove('hidden');
+                captureBtn.classList.remove('hidden');
+            } catch (error) {
+                console.error('Error accessing webcam:', error);
+                showError('Failed to access webcam. Please ensure camera permissions are granted.');
+            }
+        });
+    }
+
+    if (stopWebcamBtn) {
+        stopWebcamBtn.addEventListener('click', () => {
+            if (webcamStream) {
+                webcamStream.getTracks().forEach(track => track.stop());
+                webcamStream = null;
+                webcamVideo.srcObject = null;
+                webcamContainer.classList.add('hidden');
+                startWebcamBtn.classList.remove('hidden');
+                stopWebcamBtn.classList.add('hidden');
+                captureBtn.classList.add('hidden');
+            }
+        });
+    }
+
+    if (captureBtn) {
+        captureBtn.addEventListener('click', async () => {
+            try {
+                // Set canvas dimensions to match video
+                webcamCanvas.width = webcamVideo.videoWidth;
+                webcamCanvas.height = webcamVideo.videoHeight;
+                
+                // Draw current video frame on canvas
+                const ctx = webcamCanvas.getContext('2d');
+                ctx.drawImage(webcamVideo, 0, 0);
+                
+                // Convert canvas to base64
+                const imageData = webcamCanvas.toDataURL('image/jpeg');
+                
+                // Set image preview
+                const img = imagePreview.querySelector('img');
+                if (!img) {
+                    const newImg = document.createElement('img');
+                    newImg.classList.add('w-full', 'h-full', 'object-contain');
+                    imagePreview.innerHTML = '';
+                    imagePreview.appendChild(newImg);
+                }
+                const previewImg = imagePreview.querySelector('img');
+                previewImg.src = imageData;
+                imagePreview.classList.remove('hidden');
+
+                // First analyze image with Gemini
+                showLoading();
+                try {
+                    const analysisResponse = await fetch('/api/analyze-image', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            image_data: imageData
+                        })
+                    });
+
+                    if (!analysisResponse.ok) {
+                        const errorData = await analysisResponse.json();
+                        throw new Error(errorData.error || errorData.details || 'Image analysis failed');
+                    }
+
+                    const analysisData = await analysisResponse.json();
+                    
+                    if (analysisData.error) {
+                        throw new Error(analysisData.error);
+                    }
+                    
+                    // Generate search query from Gemini analysis
+                    let searchQueryParts = [
+                        analysisData.gender || '',
+                        analysisData.color || '',
+                        analysisData.pattern || ''
+                    ];
+                    
+                    // Process features - splitting by commas and cleaning up
+                    if (analysisData.features) {
+                        const featuresParts = analysisData.features.split(',')
+                            .map(part => part.trim())
+                            .filter(part => 
+                                part && 
+                                !part.includes('none') && 
+                                !part.includes('not visible') && 
+                                !part.includes('n/a') &&
+                                !part.includes('button-down') &&
+                                !part.includes('button down')
+                            );
+                        searchQueryParts = [...searchQueryParts, ...featuresParts];
+                    }
+                    
+                    // Add apparel type
+                    if (analysisData.apparel_type) {
+                        searchQueryParts.push(analysisData.apparel_type);
+                    }
+                    
+                    // Add brand if available and not "none visible" or similar
+                    if (analysisData.brand && 
+                        !['none', 'not visible', 'n/a', 'none visible', 'unknown'].includes(analysisData.brand.toLowerCase())) {
+                        searchQueryParts.push(analysisData.brand);
+                    }
+                    
+                    // Clean up all parts
+                    const searchQuery = searchQueryParts
+                        .filter(part => 
+                            part && 
+                            part.trim() !== '' && 
+                            !part.includes('none visible') && 
+                            !part.includes('not visible') &&
+                            !part.includes('n/a') &&
+                            !part.includes('button-down') &&
+                            !part.includes('button down')
+                        )
+                        .join(' ')
+                        .toLowerCase()
+                        .replace(/none|not visible|n\/a|unknown|button[\s-]down/gi, '')
+                        .replace(/\s+/g, ' ')
+                        .trim();
+                    
+                    console.log('Generated search query:', searchQuery);
+                    
+                    if (!searchQuery) {
+                        throw new Error('Could not generate a search query from the image analysis');
+                    }
+                    
+                    // Use the generated query for text search
+                    textQuery.value = searchQuery;
+                    await performTextSearch(searchQuery);
+                } catch (error) {
+                    console.error('Error in webcam capture:', error);
+                    showError(error.message || 'Failed to process webcam image');
+                } finally {
+                    hideLoading();
+                }
+            } catch (error) {
+                console.error('Error in webcam capture:', error);
+                showError(error.message || 'Failed to process webcam image');
             }
         });
     }
